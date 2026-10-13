@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LHWS PRICE APP - 01.01.2026</title>
+  <meta name="description" content="LHWS price calculator: RETAIL, PAR and COST.">
+  <meta name="theme-color" content="#0364bc" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b1726" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="LHWS Price">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#results">Skip to totals</a>
+
+  <header class="app-header">
+    <div class="wrap header-inner">
+      <h1 id="title">LHWS PRICE APP - 01.01.2026</h1>
+      <button type="button" class="btn btn-ghost btn-small" id="clearTop">Clear</button>
+    </div>
+    <nav class="section-nav" aria-label="Jump to section">
+      <div class="wrap section-nav-inner" id="sectionNav"></div>
+    </nav>
+  </header>
+
+  <div class="wrap" id="installTip" hidden>
+    <div class="tip" role="note">
+      <p><strong>Add to Home Screen:</strong> tap <span aria-label="the Share button">Share</span>, then <em>Add to Home Screen</em> to open this like an app.</p>
+      <button type="button" class="btn btn-ghost btn-small" id="installTipClose" aria-label="Dismiss tip">Dismiss</button>
+    </div>
+  </div>
+
+  <main class="wrap" id="main">
+    <form id="priceForm" novalidate autocomplete="off">
+      <div class="search">
+        <label for="search" class="sr-only">Filter products</label>
+        <input type="search" id="search" placeholder="Find a product, e.g. softener" autocomplete="off" enterkeyhint="search">
+      </div>
+
+      <div id="productSections"></div>
+
+      <section class="card" id="sec-labor" aria-labelledby="h-labor">
+        <h2 id="h-labor" class="sr-only">Trenching and labor</h2>
+        <div id="numberFields"></div>
+      </section>
+
+      <hr class="divider">
+
+      <section class="card results" id="results" aria-labelledby="h-results" tabindex="-1">
+        <h2 id="h-results" class="sr-only">Totals</h2>
+        <dl class="result-list">
+          <div class="result result-main">
+            <dt id="lbl-retail">RETAIL</dt>
+            <dd><output id="out-retail" aria-labelledby="lbl-retail">$0.00</output></dd>
+          </div>
+          <div class="result">
+            <dt><span id="lbl-par">PAR (8% commissionable)</span><small>*Includes $500 admin fee</small></dt>
+            <dd><output id="out-par" aria-labelledby="lbl-par">$0.00</output></dd>
+          </div>
+          <div class="result">
+            <dt><span id="lbl-cost">COST</span><small>*Account for CC/Finance fees</small></dt>
+            <dd><output id="out-cost" aria-labelledby="lbl-cost">$0.00</output></dd>
+          </div>
+        </dl>
+        <details class="breakdown" id="breakdownDetails">
+          <summary>Itemized breakdown</summary>
+          <div id="breakdown"></div>
+        </details>
+      </section>
+
+      <div class="actions">
+        <button type="button" class="btn btn-primary btn-block" id="reviewBtn">Review &amp; Submit</button>
+        <button type="button" class="btn btn-danger-ghost btn-block" id="clearBtn">CLEAR FORM</button>
+      </div>
+      <p class="saved-note" id="savedNote" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <!-- Sticky totals bar (mobile and desktop) -->
+  <div class="totals-bar" id="totalsBar">
+    <div class="wrap totals-inner">
+      <button type="button" class="totals-summary" id="totalsToggle" aria-controls="results">
+        <span class="t-item t-retail"><span class="t-label">RETAIL</span><span class="t-val" id="bar-retail">$0.00</span></span>
+        <span class="t-stack">
+          <span class="t-row"><span class="t-label">PAR</span><span class="t-val" id="bar-par">$0.00</span></span>
+          <span class="t-row"><span class="t-label">COST</span><span class="t-val" id="bar-cost">$0.00</span></span>
+        </span>
+      </button>
+      <button type="button" class="btn btn-primary" id="reviewBarBtn" aria-label="Review &amp; Submit"><span class="rb-text">Review</span><span class="rb-icon" aria-hidden="true">→</span></button>
+    </div>
+  </div>
+
+  <!-- Review dialog -->
+  <dialog id="reviewDialog" aria-labelledby="reviewTitle">
+    <div class="dialog-body">
+      <div class="dialog-head">
+        <h2 id="reviewTitle">Review quote</h2>
+        <button type="button" class="icon-btn" id="reviewClose" aria-label="Back to form">✕</button>
+      </div>
+      <div id="reviewContent"></div>
+      <p class="form-error" id="submitError" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost" id="reviewBack">Back to Form</button>
+        <button type="button" class="btn btn-primary" id="submitBtn">Submit</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Confirmation dialog -->
+  <dialog id="doneDialog" aria-labelledby="doneTitle">
+    <div class="dialog-body done">
+      <div class="done-icon" aria-hidden="true">✓</div>
+      <h2 id="doneTitle">Quote sent</h2>
+      <p id="doneText">Your submission was emailed. The form has been cleared for the next quote.</p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-primary btn-block" id="doneOk">Start a new quote</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/pricing.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
