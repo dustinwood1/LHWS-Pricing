@@ -1,6 +1,5 @@
 (function () {
   var FORM = window.LHWS_FORM;
-  var CONFIG = window.LHWS_CONFIG;
   var form = document.getElementById('price-form');
   var statusEl = document.getElementById('status');
   var submitBtn = document.getElementById('submit-btn');
@@ -119,10 +118,10 @@
   form.addEventListener('input', update);
   form.addEventListener('change', update);
 
-  function buildEmail() {
+  function buildEmail(config) {
     var t = totals();
     var nums = numberValues();
-    var data = { _subject: CONFIG.emailSubject, _template: 'table', _captcha: 'false' };
+    var data = { _subject: config.emailSubject, _template: 'table', _captcha: 'false' };
     FORM.pickers.forEach(function (q) {
       var picked = [];
       form.querySelectorAll('input[name="' + q.name + '"]:checked').forEach(function (c) { picked.push(c.value); });
@@ -152,17 +151,25 @@
       bad.focus();
       return;
     }
-    if (!CONFIG.submitTo || CONFIG.submitTo.indexOf('@example.com') !== -1) {
-      setStatus('Email is not set up yet: add the receiving address in config.js.', 'bad');
-      return;
-    }
     submitBtn.disabled = true;
     setStatus('Sending…');
-    fetch('https://formsubmit.co/ajax/' + encodeURIComponent(CONFIG.submitTo), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(buildEmail()),
-    })
+    // Read the receiving address fresh on every submit, so a page left open (or cached on a
+    // phone) never sends to an address that has since been changed in config.json.
+    fetch('config.json', { cache: 'no-store' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('could not load the email settings');
+        return r.json();
+      })
+      .then(function (config) {
+        if (!config.submitTo || config.submitTo.indexOf('@example.com') !== -1) {
+          throw new Error('the receiving address is not set in config.json');
+        }
+        return fetch('https://formsubmit.co/ajax/' + encodeURIComponent(config.submitTo), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(buildEmail(config)),
+        });
+      })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, body: j }; }); })
       .then(function (res) {
         if (!res.ok || String(res.body.success) === 'false') throw new Error(res.body.message || 'Send failed');
