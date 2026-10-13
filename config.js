@@ -4,6 +4,6 @@
 // After activating, FormSubmit also emails a random alias you can paste here instead of the
 // address, so the address is not visible in the site's source.
 window.LHWS_CONFIG = {
-  submitTo: 'egyptianmasricairo@gmail.com',
+  submitTo: 'dustinwood@gmail.com',
   emailSubject: 'LHWS PRICE APP submission',
 };
