@@ -8,14 +8,14 @@ emailed through [FormSubmit](https://formsubmit.co).
 ## Files
 
 - `form-data.js`: every question, option and price, plus the three calculations. Edit prices here.
-- `config.js`: the email address submissions go to.
+- `config.json`: the email address submissions go to (read fresh on every submit).
 - `index.html`, `app.js`, `styles.css`: the page.
 - `tools/compare-with-jotform.js`: fills the original JotForm and this site with the same answers
   and compares the results. The last run is in [docs/price-check.md](docs/price-check.md).
 
 ## Setup
 
-1. Put the receiving address in `config.js`. The first submission sends FormSubmit's one-time
+1. Put the receiving address in `config.json`. The first submission sends FormSubmit's one-time
    activation email to that address; click the link in it.
 2. Turn on GitHub Pages: repository **Settings → Pages → Deploy from a branch → `main` / root**.
    The site is then at https://khaledhamza.github.io/LHWS-Pricing/.
