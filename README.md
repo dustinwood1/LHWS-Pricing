@@ -38,6 +38,26 @@ the new file to upload by hand.
 `node tools/check-form-data.js` checks that the admin page's writer reproduces `form-data.js` exactly,
 so a save only changes the numbers that were edited.
 
+## Admin sign-in
+
+The admin page can require signing in with an emailed link, through Firebase Authentication's free
+plan. Only the address in `admin-config.js` (dustinwood01@gmail.com) is let in. Once signed in, the
+GitHub token is kept in that account (in Firestore, readable only by the admin), so it is pasted once
+and works on every device the admin signs in on. Until `admin-config.js` has a Firebase config,
+sign-in is off and the page works as before.
+
+To turn it on:
+
+1. At https://console.firebase.google.com, **Create a project** (Google Analytics not needed).
+2. **Build → Authentication → Get started → Sign-in method → Email/Password**: turn on
+   **Email link (passwordless sign-in)** and save.
+3. **Authentication → Settings → Authorized domains → Add domain**: `khaledhamza.github.io`.
+4. **Build → Firestore Database → Create database** (production mode, any location). On its **Rules**
+   tab, paste the contents of [`firestore.rules`](firestore.rules) and **Publish**.
+5. **Project settings → General → Your apps → Web (`</>`)**: register an app (no Hosting needed) and
+   copy the `apiKey`, `authDomain` and `projectId` from the config it shows into `firebase` in
+   `admin-config.js`. These values are meant to be public; access is enforced by the rules.
+
 ## Re-running the price check
 
 ```sh

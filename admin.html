@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#161c4c">
   <link rel="icon" type="image/png" href="icons/favicon.png">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="admin.css?v=2">
+  <link rel="stylesheet" href="admin.css?v=3">
 </head>
 <body class="admin">
   <header class="top">
@@ -18,12 +18,26 @@
   </header>
 
   <main class="wrap">
-    <p id="load-status" class="status" role="status" aria-live="polite">Loading the current prices…</p>
+    <section class="card" id="login" hidden>
+      <span class="q-label">Admin sign-in</span>
+      <p class="sub">Enter the admin email and we'll email you a link. Opening it signs you in on this device.</p>
+      <label class="field">
+        <span>Email</span>
+        <input type="email" id="login-email" autocomplete="email" inputmode="email" placeholder="you@gmail.com">
+      </label>
+      <button type="button" class="submit save" id="login-btn">Email me a sign-in link</button>
+      <p id="login-status" class="status" role="status" aria-live="polite"></p>
+    </section>
 
-    <details class="card" id="access">
+    <p id="signed-in" class="signed-in" hidden><span id="signed-in-as"></span>
+      <button type="button" class="link-btn" id="sign-out">Sign out</button></p>
+
+    <p id="load-status" class="status" role="status" aria-live="polite"></p>
+
+    <details class="card" id="access" hidden>
       <summary><span class="q-label">GitHub access</span><span class="count" id="access-state"></span></summary>
       <p class="sub">Saving updates the price file in the site's GitHub repository, so it needs a GitHub token
-        with write access to it. The token stays in this browser and is only sent to GitHub.</p>
+        with write access to it. <span id="token-where">The token stays in this browser and is only sent to GitHub.</span></p>
       <ol class="help">
         <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → New fine-grained token</a>.</li>
         <li>Repository access: <b>Only select repositories</b> → <b>LHWS-Pricing</b>.</li>
@@ -33,7 +47,7 @@
         <span>Token</span>
         <input type="password" id="token" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
       </label>
-      <label class="check"><input type="checkbox" id="remember"> Remember on this device</label>
+      <label class="check" id="remember-row"><input type="checkbox" id="remember"> Remember on this device</label>
       <button type="button" class="link-btn" id="forget">Forget token</button>
     </details>
 
@@ -69,12 +83,14 @@
     </section>
   </main>
 
-  <div class="totals-bar admin-bar">
+  <div class="totals-bar admin-bar" id="admin-bar" hidden>
     <span id="change-count">No changes</span>
     <button type="button" id="review-btn" disabled>Review &amp; save</button>
   </div>
 
   <script src="form-data-writer.js?v=1"></script>
-  <script src="admin.js?v=2"></script>
+  <script src="admin-config.js?v=1"></script>
+  <script src="admin-login.js?v=1"></script>
+  <script src="admin.js?v=3"></script>
 </body>
 </html>

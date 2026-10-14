@@ -1,6 +1,7 @@
 // Admin page: edit the prices in form-data.js and save them back to the GitHub repository,
-// which GitHub Pages then republishes. Saving uses a GitHub token the admin pastes in; it is
-// kept in this browser only (and only if "Remember on this device" is ticked).
+// which GitHub Pages then republishes. Saving uses a GitHub token the admin pastes in. With email
+// sign-in on (admin-login.js) the token is kept in the admin's account; otherwise it is kept in
+// this browser only (and only if "Remember on this device" is ticked).
 (function () {
   var REPO = { owner: 'khaledhamza', name: 'LHWS-Pricing', branch: 'main', path: 'form-data.js' };
   var API = 'https://api.github.com/repos/' + REPO.owner + '/' + REPO.name + '/contents/' + REPO.path;
@@ -11,6 +12,8 @@
   var form = $('admin-form');
   var tokenInput = $('token');
   var remember = $('remember');
+  var session = null; // the signed-in admin, when email sign-in is on
+  var saveTimer = null;
   var base = null;   // the prices as last loaded or saved
   var edit = null;   // the prices being edited
 
@@ -33,12 +36,22 @@
 
   function trim(n) { return String(Number(Number(n).toPrecision(12))); }
 
-  // ---- GitHub token, kept only in this browser ----
+  // ---- GitHub token, kept in the admin's account or only in this browser ----
 
   function readStoredToken() {
     try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; }
   }
   function storeToken() {
+    if (session) {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(function () {
+        session.saveToken(token()).catch(function (e) {
+          setStatus($('load-status'), 'Could not keep the token in your account: ' + e.message + '.', 'bad');
+        });
+      }, 600);
+      showAccess();
+      return;
+    }
     try {
       if (remember.checked && tokenInput.value.trim()) localStorage.setItem(TOKEN_KEY, tokenInput.value.trim());
       else localStorage.removeItem(TOKEN_KEY);
@@ -52,9 +65,6 @@
     s.className = 'count' + (token() ? ' ok' : '');
   }
 
-  tokenInput.value = readStoredToken();
-  remember.checked = !!tokenInput.value;
-  if (!tokenInput.value) $('access').open = true;
   tokenInput.addEventListener('input', storeToken);
   remember.addEventListener('change', storeToken);
   $('forget').addEventListener('click', function () {
@@ -62,7 +72,6 @@
     remember.checked = false;
     storeToken();
   });
-  showAccess();
 
   // ---- Reading form-data.js ----
 
@@ -122,12 +131,45 @@
         edit = clone(base);
         build();
         form.hidden = false;
+        $('admin-bar').hidden = false;
         setStatus($('load-status'), 'Current prices loaded from ' + got.from + '. Changed fields are highlighted.', '');
       })
       .catch(function (err) {
         setStatus($('load-status'), 'Could not load the prices: ' + err.message + '.', 'bad');
       });
   }
+
+  // Sign in first when email sign-in is on, then fetch the token and the prices.
+  function start() {
+    return window.LHWS_LOGIN.start()
+      .then(function (s) {
+        session = s;
+        if (!s) {
+          tokenInput.value = readStoredToken();
+          remember.checked = !!tokenInput.value;
+          return;
+        }
+        $('signed-in-as').textContent = 'Signed in as ' + s.email;
+        $('signed-in').hidden = false;
+        $('remember-row').hidden = true;
+        $('token-where').textContent = 'Paste it once: it is kept in your admin account, so other devices you sign in on have it too.';
+        return s.loadToken().then(function (t) { tokenInput.value = t; });
+      })
+      .then(function () {
+        $('access').hidden = false;
+        if (!token()) $('access').open = true;
+        showAccess();
+        setStatus($('load-status'), 'Loading the current prices…');
+        return load();
+      })
+      .catch(function (err) {
+        setStatus($('load-status'), 'Could not sign in: ' + err.message + '.', 'bad');
+      });
+  }
+
+  $('sign-out').addEventListener('click', function () {
+    if (session) session.signOut().then(function () { location.reload(); });
+  });
 
   // ---- Building the editor ----
   // The editor always draws `edit`; each row remembers the value it had in `base` (none if new).
@@ -496,5 +538,5 @@
       .then(function () { btn.disabled = false; });
   });
 
-  load();
+  start();
 })();
