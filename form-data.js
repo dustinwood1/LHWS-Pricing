@@ -2,6 +2,7 @@
 // (https://form.jotform.com/253025919276159). Each option is [label, price];
 // null is one of the "—" separators the original uses to group options.
 // `value` is set only where JotForm submits a different string than it shows.
+// Prices can be changed on admin.html, which rewrites this file (see form-data-writer.js).
 
 window.LHWS_FORM = {
   title: 'LHWS PRICE APP - 01.01.2026',
@@ -105,16 +106,20 @@ window.LHWS_FORM = {
     par: { label: 'PAR (8% commissionable)', sub: '*Includes $500 admin fee' },
     cost: { label: 'COST', sub: '*Account for CC/Finance fees' },
   },
+
+  // PAR = RETAIL * parRate + adminFee; COST = RETAIL * costRate.
+  calc: { parRate: 0.65, adminFee: 500, costRate: 0.5 },
 };
 
-// The original's three calculations, each rounded to 2 decimal places:
-//   RETAIL = {47}+{45}+{46}+{59} + {40}*14 + {74}*103 + {81}*5
-//   PAR    = RETAIL*.65 + 500
-//   COST   = RETAIL*.50
+// The three calculations, each rounded to 2 decimal places. With the numbers above:
+//   RETAIL = {47}+{45}+{46}+{59} + {40}*14 + {81}*5 + {74}*103
+//   PAR    = RETAIL*0.65 + 500
+//   COST   = RETAIL*0.5
 window.LHWS_CALC = function (pickerTotal, numbers) {
   var round2 = function (n) { return Math.round(n * 100) / 100; };
+  var F = window.LHWS_FORM;
   var retail = pickerTotal;
-  window.LHWS_FORM.numbers.forEach(function (q) { retail += (numbers[q.id] || 0) * q.rate; });
+  F.numbers.forEach(function (q) { retail += (numbers[q.id] || 0) * q.rate; });
   retail = round2(retail);
-  return { retail: retail, par: round2(retail * 0.65 + 500), cost: round2(retail * 0.5) };
+  return { retail: retail, par: round2(retail * F.calc.parRate + F.calc.adminFee), cost: round2(retail * F.calc.costRate) };
 };

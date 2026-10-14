@@ -7,7 +7,9 @@ emailed through [FormSubmit](https://formsubmit.co).
 
 ## Files
 
-- `form-data.js`: every question, option and price, plus the three calculations. Edit prices here.
+- `form-data.js`: every question, option and price, plus the three calculations. Change prices on the
+  admin page (below) or by editing this file.
+- `admin.html`, `admin.js`, `admin.css`, `form-data-writer.js`: the admin page for changing prices.
 - `config.json`: the email address submissions go to (read fresh on every submit).
 - `index.html`, `app.js`, `styles.css`: the page.
 - `tools/compare-with-jotform.js`: fills the original JotForm and this site with the same answers
@@ -21,9 +23,27 @@ emailed through [FormSubmit](https://formsubmit.co).
    The site is then at https://khaledhamza.github.io/LHWS-Pricing/.
 3. On a phone, open the site and use **Add to Home Screen** to get the app icon.
 
+## Changing prices
+
+Open https://khaledhamza.github.io/LHWS-Pricing/admin.html. It loads the current prices; change any
+option price, per-unit rate, the PAR % and admin fee, or the COST %. It can also add or remove options
+in a list, whole lists, and number fields (each with its own rate per unit). Then **Review & save**.
+
+Saving commits a new `form-data.js` to `main` through the GitHub API, and GitHub Pages republishes the
+form within about 10 minutes. It needs a GitHub fine-grained token with **Contents: Read and write** on
+this repository only; the page explains how to make one. The token is kept only in that browser (and
+only if "Remember on this device" is ticked). Without a token, **Download form-data.js instead** gives
+the new file to upload by hand.
+
+`node tools/check-form-data.js` checks that the admin page's writer reproduces `form-data.js` exactly,
+so a save only changes the numbers that were edited.
+
 ## Re-running the price check
 
 ```sh
 npm install playwright   # once, if Playwright is not installed
 node tools/compare-with-jotform.js docs/price-check.md
 ```
+
+The check compares against the original JotForm, so it reports mismatches once prices are changed on
+the admin page.

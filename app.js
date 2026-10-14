@@ -18,6 +18,13 @@
     return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  // The title and the PAR note (which names the admin fee) can be changed on the admin page.
+  document.title = FORM.title;
+  document.getElementById('title').textContent = FORM.title;
+  ['par', 'cost'].forEach(function (k) {
+    document.getElementById('sub-' + k).textContent = FORM.results[k].sub;
+  });
+
   // Multi-select questions become tappable checkbox lists, grouped where the original has "—".
   FORM.pickers.forEach(function (q) {
     var groups = [[]];
