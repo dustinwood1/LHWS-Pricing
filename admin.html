@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#161c4c">
   <link rel="icon" type="image/png" href="icons/favicon.png">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="admin.css?v=1">
+  <link rel="stylesheet" href="admin.css?v=2">
 </head>
 <body class="admin">
   <header class="top">
@@ -43,16 +43,19 @@
           <span class="q-label">Price list name</span>
           <input type="text" id="title" autocomplete="off">
         </label>
+        <p class="error" id="title-error"></p>
         <p class="sub">Shown at the top of the form and in the browser tab.</p>
       </section>
       <div id="pickers"></div>
       <section class="card" id="numbers">
         <span class="q-label">Per-unit rates</span>
         <p class="sub">What each unit entered adds to RETAIL.</p>
+        <div id="number-rows"></div>
       </section>
       <section class="card" id="calc">
         <span class="q-label">Totals</span>
         <p class="sub">PAR = RETAIL × PAR % + admin fee. COST = RETAIL × COST %.</p>
+        <div id="calc-rows"></div>
       </section>
     </form>
 
@@ -72,6 +75,6 @@
   </div>
 
   <script src="form-data-writer.js?v=1"></script>
-  <script src="admin.js?v=1"></script>
+  <script src="admin.js?v=2"></script>
 </body>
 </html>

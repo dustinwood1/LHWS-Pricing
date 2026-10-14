@@ -26,7 +26,8 @@ emailed through [FormSubmit](https://formsubmit.co).
 ## Changing prices
 
 Open https://khaledhamza.github.io/LHWS-Pricing/admin.html. It loads the current prices; change any
-option price, per-unit rate, the PAR % and admin fee, or the COST %, then **Review & save**.
+option price, per-unit rate, the PAR % and admin fee, or the COST %. It can also add or remove options
+in a list, whole lists, and number fields (each with its own rate per unit). Then **Review & save**.
 
 Saving commits a new `form-data.js` to `main` through the GitHub API, and GitHub Pages republishes the
 form within about 10 minutes. It needs a GitHub fine-grained token with **Contents: Read and write** on

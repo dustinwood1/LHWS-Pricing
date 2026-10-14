@@ -13,7 +13,6 @@
   var remember = $('remember');
   var base = null;   // the prices as last loaded or saved
   var edit = null;   // the prices being edited
-  var fields = [];
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
@@ -32,11 +31,6 @@
     node.className = 'status ' + (kind || '');
   }
 
-  function show(field, v) {
-    if (field.kind === 'text') return v;
-    if (field.kind === 'percent') return trim(v * 100) + '%';
-    return '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
-  }
   function trim(n) { return String(Number(Number(n).toPrecision(12))); }
 
   // ---- GitHub token, kept only in this browser ----
@@ -136,135 +130,292 @@
   }
 
   // ---- Building the editor ----
+  // The editor always draws `edit`; each row remembers the value it had in `base` (none if new).
 
-  function addField(parent, f) {
-    var input = el('input', {
-      type: f.kind === 'text' ? 'text' : 'number', id: 'f' + fields.length,
-      inputmode: 'decimal', step: 'any', min: '0', autocomplete: 'off',
+  var rows = [];
+  var bad = {};
+
+  function money(v) {
+    var n = Number(v);
+    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  }
+  function pct(v) { return trim(v * 100) + '%'; }
+  function byId(list, id) { return list.filter(function (q) { return q.id === id; })[0] || null; }
+  function option(q, label) { return q ? q.options.filter(function (o) { return o && o[0] === label; })[0] || null : null; }
+
+  // Each new list or number field gets an id no other question uses.
+  function newId() {
+    var ids = [100];
+    [base, edit].forEach(function (F) {
+      F.pickers.concat(F.numbers).forEach(function (q) { ids.push(q.id); });
     });
-    f.input = input;
-    f.was = el('span', { class: 'was' });
-    f.error = el('p', { class: 'error' });
-    input.value = f.kind === 'percent' ? trim(f.get(base) * 100) : f.get(base);
-    input.addEventListener('input', function () { onInput(f); });
-    var box = f.kind === 'text' ? input : el('span', { class: 'money ' + (f.kind === 'percent' ? 'percent' : 'dollar') }, [input]);
-    parent.appendChild(el('div', { class: 'price price-row' }, [
-      el('label', { for: input.id }, [el('span', { text: f.label }), f.was]), box, f.error,
-    ]));
-    fields.push(f);
+    return Math.max.apply(null, ids) + 1;
+  }
+  function fieldName(id, label) {
+    var words = label.replace(/[^A-Za-z0-9 ]/g, ' ').trim().split(/\s+/);
+    return 'q' + id + '_' + words.map(function (w, i) {
+      w = w.toLowerCase();
+      return i ? w.charAt(0).toUpperCase() + w.slice(1) : w;
+    }).join('');
+  }
+  // Every question's label is a line in the emailed quote, so labels must not repeat.
+  function labelTaken(label) {
+    var all = edit.pickers.concat(edit.numbers).map(function (q) { return q.label.toLowerCase(); })
+      .concat(['retail', 'par', 'cost'].map(function (k) { return edit.results[k].label.toLowerCase(); }))
+      .concat(edit.hidden.map(function (h) { return h.label.toLowerCase(); }));
+    return all.indexOf(label.toLowerCase()) !== -1;
+  }
+
+  function parseAmount(raw, kind) {
+    var v = Number(String(raw).trim());
+    if (String(raw).trim() === '' || isNaN(v)) return { error: 'Enter a number' };
+    if (v < 0) return { error: 'Cannot be negative' };
+    return { value: kind === 'percent' ? Number((v / 100).toPrecision(12)) : v };
+  }
+
+  function amountBox(kind, value) {
+    var input = el('input', { type: 'number', inputmode: 'decimal', step: 'any', min: '0', autocomplete: 'off' });
+    if (value !== undefined) input.value = kind === 'percent' ? trim(value * 100) : value;
+    return { input: input, box: el('span', { class: 'money ' + (kind === 'percent' ? 'percent' : 'dollar') }, [input]) };
+  }
+
+  // One editable amount. r: { key, label, kind, get, set, was, section, onRemove }
+  function addRow(parent, r) {
+    var a = amountBox(r.kind, r.get());
+    r.input = a.input;
+    r.input.id = 'f-' + r.key;
+    r.wasEl = el('span', { class: 'was' });
+    r.error = el('p', { class: 'error' });
+    r.input.addEventListener('input', function () {
+      var p = parseAmount(r.input.value, r.kind);
+      bad[r.key] = !!p.error;
+      r.error.textContent = p.error || '';
+      r.input.setAttribute('aria-invalid', p.error ? 'true' : 'false');
+      if (!p.error) r.set(p.value);
+      refresh();
+    });
+    var parts = [el('label', { for: r.input.id }, [el('span', { text: r.label }), r.wasEl]), a.box];
+    if (r.onRemove) {
+      var rm = el('button', { type: 'button', class: 'remove', 'aria-label': 'Remove ' + r.label, title: 'Remove', text: '✕' });
+      rm.addEventListener('click', function () { r.onRemove(); build(); });
+      parts.push(rm);
+    }
+    parts.push(r.error);
+    parent.appendChild(el('div', { class: 'price price-row' }, parts));
+    rows.push(r);
+  }
+
+  // A small "add" form: text fields, an optional amount, and a button. onAdd returns an error or ''.
+  function addForm(parent, opts) {
+    var texts = opts.texts.map(function (t) {
+      return el('input', { type: 'text', placeholder: t, autocomplete: 'off', 'aria-label': t });
+    });
+    var amount = opts.amount ? amountBox('dollar') : null;
+    if (amount) { amount.input.placeholder = '0'; amount.input.setAttribute('aria-label', opts.amount); }
+    var btn = el('button', { type: 'button', class: 'add-btn', text: opts.button });
+    var error = el('p', { class: 'error' });
+    btn.addEventListener('click', function () {
+      var values = texts.map(function (t) { return t.value.trim(); });
+      if (!values[0]) { error.textContent = 'Enter a name'; texts[0].focus(); return; }
+      var price;
+      if (amount) {
+        var p = parseAmount(amount.input.value, 'dollar');
+        if (p.error) { error.textContent = p.error; amount.input.focus(); return; }
+        price = p.value;
+      }
+      var msg = opts.onAdd(values, price);
+      if (msg) { error.textContent = msg; return; }
+      build();
+    });
+    var line = [texts[0]];
+    if (amount) line.push(amount.box);
+    var children = [opts.title ? el('span', { class: 'q-label', text: opts.title }) : null, el('div', { class: 'add-line' }, line)].concat(texts.slice(1), [btn, error]);
+    parent.appendChild(el('div', { class: 'add-form' }, children));
+  }
+
+  // Removing an option can leave two "—" separators together or one at an end; tidy them.
+  function tidy(options) {
+    var out = [];
+    options.forEach(function (o) {
+      if (o === null && (!out.length || out[out.length - 1] === null)) return;
+      out.push(o);
+    });
+    while (out.length && out[out.length - 1] === null) out.pop();
+    return out;
   }
 
   function build() {
-    fields = [];
+    rows = [];
+    bad = {};
     var titleInput = $('title');
-    var titleField = {
-      label: 'Price list name', kind: 'text', input: titleInput, was: el('span'), error: el('p'),
-      get: function (F) { return F.title; }, set: function (F, v) { F.title = v; },
+    titleInput.value = edit.title;
+    titleInput.oninput = function () {
+      var v = titleInput.value.trim();
+      bad.title = !v;
+      $('title-error').textContent = v ? '' : 'Enter a name';
+      if (v) edit.title = v;
+      refresh();
     };
-    titleInput.value = base.title;
-    titleInput.oninput = function () { onInput(titleField); };
-    fields.push(titleField);
+    $('title-error').textContent = '';
 
     var pickers = $('pickers');
-    var wasOpen = [].map.call(pickers.children, function (d) { return d.open; });
+    var wasOpen = {};
+    [].forEach.call(pickers.children, function (d) { wasOpen[d.getAttribute('data-id')] = d.open; });
     pickers.textContent = '';
-    base.pickers.forEach(function (q, qi) {
+    edit.pickers.forEach(function (q) {
+      var bq = byId(base.pickers, q.id);
       var groups = [el('div', { class: 'group' })];
-      q.options.forEach(function (o, oi) {
+      q.options.forEach(function (o) {
         if (o === null) { groups.push(el('div', { class: 'group' })); return; }
-        addField(groups[groups.length - 1], {
-          label: o[0], section: q.label, kind: 'dollar',
-          get: function (F) { return F.pickers[qi].options[oi][1]; },
-          set: function (F, v) { F.pickers[qi].options[oi][1] = v; },
+        var bo = option(bq, o[0]);
+        addRow(groups[groups.length - 1], {
+          key: q.id + '-' + o[0], label: o[0], kind: 'dollar', section: q.id,
+          was: bo ? bo[1] : undefined,
+          get: function () { return o[1]; }, set: function (v) { o[1] = v; },
+          onRemove: function () { q.options = tidy(q.options.filter(function (x) { return x !== o; })); },
         });
       });
-      var summary = el('summary', {}, [el('span', { class: 'q-label', text: q.label }), el('span', { class: 'count', id: 'changed-' + qi })]);
-      var card = el('details', { class: 'card' }, [summary, el('div', { class: 'options' }, groups)]);
-      card.open = !!wasOpen[qi];
+      var body = el('div', { class: 'options' }, groups);
+      if (q.sub) body.insertBefore(el('p', { class: 'sub', text: q.sub }), body.firstChild);
+      addForm(body, {
+        texts: ['New option name'], amount: 'Price', button: 'Add option',
+        onAdd: function (v, price) {
+          if (option(q, v[0])) return q.label + ' already has ' + v[0];
+          q.options.push([v[0], price]);
+          return '';
+        },
+      });
+      var rmList = el('button', { type: 'button', class: 'link-btn danger', text: 'Remove the ' + q.label + ' list' });
+      rmList.addEventListener('click', function () {
+        if (!window.confirm('Remove the whole ' + q.label + ' list from the form?')) return;
+        edit.pickers = edit.pickers.filter(function (x) { return x !== q; });
+        build();
+      });
+      body.appendChild(rmList);
+      var summary = el('summary', {}, [
+        el('span', { class: 'q-label', text: q.label + (bq ? '' : ' (new)') }),
+        el('span', { class: 'count', id: 'changed-' + q.id }),
+      ]);
+      var card = el('details', { class: 'card', 'data-id': String(q.id) }, [summary, body]);
+      card.open = !!wasOpen[q.id] || !bq;
       pickers.appendChild(card);
     });
-
-    var numbers = $('numbers');
-    numbers.querySelectorAll('.price').forEach(function (n) { n.remove(); });
-    base.numbers.forEach(function (q, ni) {
-      addField(numbers, {
-        label: q.label + ' (per unit)', kind: 'dollar',
-        get: function (F) { return F.numbers[ni].rate; },
-        set: function (F, v) { F.numbers[ni].rate = v; },
-      });
-    });
-
-    var calc = $('calc');
-    calc.querySelectorAll('.price').forEach(function (n) { n.remove(); });
-    addField(calc, {
-      label: 'PAR % of RETAIL', kind: 'percent',
-      get: function (F) { return F.calc.parRate; }, set: function (F, v) { F.calc.parRate = v; },
-    });
-    addField(calc, {
-      label: 'Admin fee added to PAR', kind: 'dollar',
-      get: function (F) { return F.calc.adminFee; },
-      set: function (F, v) {
-        F.calc.adminFee = v;
-        // Keep the "*Includes $500 admin fee" note under PAR in step with the fee.
-        F.results.par.sub = base.results.par.sub.replace(/\$[\d,]+(\.\d+)?/, '$' + Number(v).toLocaleString('en-US'));
+    addForm(pickers, {
+      title: 'Add a new list', texts: ['List name, e.g. Pumps', 'Note under the name (optional)'], button: 'Add list',
+      onAdd: function (v) {
+        if (labelTaken(v[0])) return 'There is already a question called ' + v[0];
+        var id = newId();
+        edit.pickers.push({ id: id, name: fieldName(id, v[0]), label: v[0], sub: v[1], options: [] });
+        return '';
       },
     });
-    addField(calc, {
-      label: 'COST % of RETAIL', kind: 'percent',
-      get: function (F) { return F.calc.costRate; }, set: function (F, v) { F.calc.costRate = v; },
+    pickers.lastChild.classList.add('card');
+
+    var numbers = $('number-rows');
+    numbers.textContent = '';
+    edit.numbers.forEach(function (q) {
+      var bq = byId(base.numbers, q.id);
+      addRow(numbers, {
+        key: 'n' + q.id, label: q.label + ' (per unit)', kind: 'dollar',
+        was: bq ? bq.rate : undefined,
+        get: function () { return q.rate; }, set: function (v) { q.rate = v; },
+        onRemove: function () { edit.numbers = edit.numbers.filter(function (x) { return x !== q; }); },
+      });
+    });
+    addForm(numbers, {
+      texts: ['New number field, e.g. Extra Fittings', 'Note under it (optional)'], amount: 'Rate per unit', button: 'Add number field',
+      onAdd: function (v, rate) {
+        if (labelTaken(v[0])) return 'There is already a question called ' + v[0];
+        var id = newId();
+        edit.numbers.push({ id: id, name: fieldName(id, v[0]), label: v[0], sub: v[1], rate: rate });
+        return '';
+      },
+    });
+
+    var calc = $('calc-rows');
+    calc.textContent = '';
+    addRow(calc, {
+      key: 'parRate', label: 'PAR % of RETAIL', kind: 'percent', was: base.calc.parRate,
+      get: function () { return edit.calc.parRate; }, set: function (v) { edit.calc.parRate = v; },
+    });
+    addRow(calc, {
+      key: 'adminFee', label: 'Admin fee added to PAR', kind: 'dollar', was: base.calc.adminFee,
+      get: function () { return edit.calc.adminFee; },
+      set: function (v) {
+        edit.calc.adminFee = v;
+        // Keep the "*Includes $500 admin fee" note under PAR in step with the fee.
+        edit.results.par.sub = base.results.par.sub.replace(/\$[\d,]+(\.\d+)?/, money(v).replace(/\.00$/, ''));
+      },
+    });
+    addRow(calc, {
+      key: 'costRate', label: 'COST % of RETAIL', kind: 'percent', was: base.calc.costRate,
+      get: function () { return edit.calc.costRate; }, set: function (v) { edit.calc.costRate = v; },
     });
     refresh();
   }
 
-  function onInput(f) {
-    var raw = f.input.value.trim();
-    var msg = '';
-    if (f.kind === 'text') {
-      if (!raw) msg = 'Enter a name';
-      else f.set(edit, raw);
-    } else {
-      var v = Number(raw);
-      if (raw === '' || isNaN(v)) msg = 'Enter a number';
-      else if (v < 0) msg = 'Cannot be negative';
-      else f.set(edit, f.kind === 'percent' ? Number((v / 100).toPrecision(12)) : v);
-    }
-    f.bad = !!msg;
-    f.error.textContent = msg;
-    f.input.setAttribute('aria-invalid', msg ? 'true' : 'false');
-    refresh();
+  // Everything that differs between `base` and `edit`, as lines for the review and the commit.
+  function changes() {
+    var out = [];
+    var add = function (text, section) { out.push({ text: text, section: section }); };
+    if (edit.title !== base.title) add('Price list name: ' + base.title + ' → ' + edit.title);
+    base.pickers.forEach(function (bq) { if (!byId(edit.pickers, bq.id)) add('Removed the ' + bq.label + ' list'); });
+    edit.pickers.forEach(function (q) {
+      var bq = byId(base.pickers, q.id);
+      if (!bq) add('New list: ' + q.label, q.id);
+      q.options.forEach(function (o) {
+        if (!o) return;
+        var bo = option(bq, o[0]);
+        if (!bo) add(q.label + ': added ' + o[0] + ' at ' + money(o[1]), q.id);
+        else if (bo[1] !== o[1]) add(q.label + ': ' + o[0] + ': ' + money(bo[1]) + ' → ' + money(o[1]), q.id);
+      });
+      if (bq) bq.options.forEach(function (bo) {
+        if (bo && !option(q, bo[0])) add(q.label + ': removed ' + bo[0] + ' (' + money(bo[1]) + ')', q.id);
+      });
+    });
+    base.numbers.forEach(function (bq) { if (!byId(edit.numbers, bq.id)) add('Removed the ' + bq.label + ' number field'); });
+    edit.numbers.forEach(function (q) {
+      var bq = byId(base.numbers, q.id);
+      if (!bq) add('New number field: ' + q.label + ' at ' + money(q.rate) + ' per unit');
+      else if (bq.rate !== q.rate) add(q.label + ' (per unit): ' + money(bq.rate) + ' → ' + money(q.rate));
+    });
+    if (edit.calc.parRate !== base.calc.parRate) add('PAR % of RETAIL: ' + pct(base.calc.parRate) + ' → ' + pct(edit.calc.parRate));
+    if (edit.calc.adminFee !== base.calc.adminFee) add('Admin fee added to PAR: ' + money(base.calc.adminFee) + ' → ' + money(edit.calc.adminFee));
+    if (edit.calc.costRate !== base.calc.costRate) add('COST % of RETAIL: ' + pct(base.calc.costRate) + ' → ' + pct(edit.calc.costRate));
+    return out;
   }
 
-  function changes() {
-    return fields.filter(function (f) { return !f.bad && f.get(edit) !== f.get(base); });
+  // Anything that would stop the public form working properly.
+  function problem() {
+    if (Object.keys(bad).some(function (k) { return bad[k]; })) return 'Fix the field marked in red';
+    var empty = edit.pickers.filter(function (q) { return !q.options.some(Boolean); })[0];
+    if (empty) return 'Add an option to ' + empty.label + ', or remove that list';
+    return '';
   }
 
   function refresh() {
-    var changed = changes();
-    fields.forEach(function (f) {
-      var isChanged = changed.indexOf(f) !== -1;
-      f.input.classList.toggle('changed', isChanged);
-      f.was.textContent = isChanged && f.kind !== 'text' ? 'was ' + show(f, f.get(base)) : '';
+    rows.forEach(function (r) {
+      var isNew = r.was === undefined;
+      var changed = isNew || r.get() !== r.was;
+      r.input.classList.toggle('changed', changed);
+      r.wasEl.textContent = isNew ? 'new' : changed ? 'was ' + (r.kind === 'percent' ? pct(r.was) : money(r.was)) : '';
     });
-    base.pickers.forEach(function (q, qi) {
-      var n = changed.filter(function (f) { return f.section === q.label; }).length;
-      $('changed-' + qi).textContent = n ? n + ' changed' : '';
+    var list = changes();
+    edit.pickers.forEach(function (q) {
+      var n = list.filter(function (c) { return c.section === q.id; }).length;
+      $('changed-' + q.id).textContent = n ? n + ' changed' : '';
     });
-    var bad = fields.some(function (f) { return f.bad; });
-    $('change-count').textContent = bad ? 'Fix the field marked in red'
-      : changed.length ? changed.length + (changed.length === 1 ? ' change' : ' changes') : 'No changes';
-    $('review-btn').disabled = bad || !changed.length;
-    if (bad || !changed.length) $('review').hidden = true;
+    var msg = problem();
+    $('change-count').textContent = msg || (list.length ? list.length + (list.length === 1 ? ' change' : ' changes') : 'No changes');
+    $('review-btn').disabled = !!msg || !list.length;
+    if (msg || !list.length) $('review').hidden = true;
     else if (!$('review').hidden) renderReview();
   }
 
-  function describe(f) {
-    return (f.section ? f.section + ': ' : '') + f.label + ': ' + show(f, f.get(base)) + ' → ' + show(f, f.get(edit));
-  }
-
   function renderReview() {
-    var list = $('change-list');
-    list.textContent = '';
-    changes().forEach(function (f) { list.appendChild(el('li', { text: describe(f) })); });
+    var ul = $('change-list');
+    ul.textContent = '';
+    changes().forEach(function (c) { ul.appendChild(el('li', { text: c.text })); });
   }
 
   $('review-btn').addEventListener('click', function () {
@@ -309,6 +460,7 @@
       return;
     }
     var list = changes();
+    if (problem()) { setStatus(status, problem() + '.', 'bad'); return; }
     var text;
     try { text = newFile(); } catch (e) { setStatus(status, 'Could not build the price file: ' + e.message + '.', 'bad'); return; }
     var btn = $('save-btn');
@@ -320,8 +472,8 @@
         if (W.renderFormData(W.loadFormData(remote.text).form) !== W.renderFormData(base)) {
           throw new Error('The prices were changed somewhere else since this page loaded. Reload the page and make your changes again');
         }
-        var summary = list.length === 1 ? describe(list[0]) : 'Update ' + list.length + ' prices';
-        var message = 'Admin: ' + summary + '\n\n' + list.map(function (f) { return '- ' + describe(f); }).join('\n');
+        var summary = list.length === 1 ? list[0].text : list.length + ' price list changes';
+        var message = 'Admin: ' + summary + '\n\n' + list.map(function (c) { return '- ' + c.text; }).join('\n');
         return fetch(API, {
           method: 'PUT',
           headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
