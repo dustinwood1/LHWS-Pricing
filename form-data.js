@@ -46,6 +46,7 @@ window.LHWS_FORM = {
         ['H2S Booster', 5179],
         null,
         ['Neutralizing Filter', 3406],
+        ['Huh', 33333],
       ],
     },
     {
