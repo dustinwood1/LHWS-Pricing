@@ -24,9 +24,9 @@
     <div id="numbers"></div>
     <hr class="divider">
     <section class="card results" aria-label="Totals">
-      <div class="result"><div><span class="r-label">RETAIL</span></div><output id="out-retail">$0.00</output></div>
-      <div class="result"><div><span class="r-label">PAR (8% commissionable)</span><span class="sub">*Includes $500 admin fee</span></div><output id="out-par">$500.00</output></div>
-      <div class="result"><div><span class="r-label">COST</span><span class="sub">*Account for CC/Finance fees</span></div><output id="out-cost">$0.00</output></div>
+      <div class="result"><div><span class="r-label" id="label-retail">RETAIL</span></div><output id="out-retail">$0.00</output></div>
+      <div class="result"><div><span class="r-label" id="label-par">PAR (8% commissionable)</span><span class="sub" id="sub-par">*Includes $500 admin fee</span></div><output id="out-par">$500.00</output></div>
+      <div class="result"><div><span class="r-label" id="label-cost">COST</span><span class="sub" id="sub-cost">*Account for CC/Finance fees</span></div><output id="out-cost">$0.00</output></div>
     </section>
     <div class="actions">
       <button type="submit" id="submit-btn" class="submit">CLEAR FORM</button>
@@ -41,7 +41,7 @@
     <div><span>COST</span><b id="bar-cost">$0.00</b></div>
   </div>
 
-  <script src="form-data.js?v=2"></script>
-  <script src="app.js?v=2"></script>
+  <script src="form-data.js?v=3"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

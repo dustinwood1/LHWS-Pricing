@@ -1,6 +1,6 @@
 # Price check: this site vs the original JotForm
 
-Run 2026-10-13 against https://form.jotform.com/253025919276159 with `node tools/compare-with-jotform.js`.
+Run 2026-10-14 against https://form.jotform.com/253025919276159 with `node tools/compare-with-jotform.js`.
 
 - Questions, labels, sublabels, 45 options and their prices, number limits and result labels: **identical**
 - RETAIL / PAR / COST: **61 of 61 cases match**
