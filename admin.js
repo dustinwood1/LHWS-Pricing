@@ -1,6 +1,7 @@
 // Admin page: edit the prices in form-data.js and save them back to the GitHub repository,
-// which GitHub Pages then republishes. Saving uses a GitHub token the admin pastes in; it is
-// kept in this browser only (and only if "Remember on this device" is ticked).
+// which GitHub Pages then republishes. The admin signs in first (admin-login.js). Saving uses a
+// GitHub token the admin pastes in; it is kept in this browser only (and only if "Remember on
+// this device" is ticked).
 (function () {
   var REPO = { owner: 'khaledhamza', name: 'LHWS-Pricing', branch: 'main', path: 'form-data.js' };
   var API = 'https://api.github.com/repos/' + REPO.owner + '/' + REPO.name + '/contents/' + REPO.path;
@@ -11,6 +12,7 @@
   var form = $('admin-form');
   var tokenInput = $('token');
   var remember = $('remember');
+  var session = null; // the signed-in admin (admin-login.js)
   var base = null;   // the prices as last loaded or saved
   var edit = null;   // the prices being edited
 
@@ -52,9 +54,6 @@
     s.className = 'count' + (token() ? ' ok' : '');
   }
 
-  tokenInput.value = readStoredToken();
-  remember.checked = !!tokenInput.value;
-  if (!tokenInput.value) $('access').open = true;
   tokenInput.addEventListener('input', storeToken);
   remember.addEventListener('change', storeToken);
   $('forget').addEventListener('click', function () {
@@ -62,7 +61,6 @@
     remember.checked = false;
     storeToken();
   });
-  showAccess();
 
   // ---- Reading form-data.js ----
 
@@ -122,12 +120,33 @@
         edit = clone(base);
         build();
         form.hidden = false;
+        $('admin-bar').hidden = false;
         setStatus($('load-status'), 'Current prices loaded from ' + got.from + '. Changed fields are highlighted.', '');
       })
       .catch(function (err) {
         setStatus($('load-status'), 'Could not load the prices: ' + err.message + '.', 'bad');
       });
   }
+
+  // Sign in first (admin-login.js), then load the prices.
+  function start() {
+    return window.LHWS_LOGIN.start().then(function (s) {
+      session = s;
+      $('signed-in-as').textContent = 'Signed in as ' + s.email;
+      $('signed-in').hidden = false;
+      tokenInput.value = readStoredToken();
+      remember.checked = !!tokenInput.value;
+      $('access').hidden = false;
+      if (!token()) $('access').open = true;
+      showAccess();
+      setStatus($('load-status'), 'Loading the current prices…');
+      return load();
+    });
+  }
+
+  $('sign-out').addEventListener('click', function () {
+    if (session) session.signOut().then(function () { location.reload(); });
+  });
 
   // ---- Building the editor ----
   // The editor always draws `edit`; each row remembers the value it had in `base` (none if new).
@@ -496,5 +515,5 @@
       .then(function () { btn.disabled = false; });
   });
 
-  load();
+  start();
 })();

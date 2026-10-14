@@ -38,6 +38,16 @@ the new file to upload by hand.
 `node tools/check-form-data.js` checks that the admin page's writer reproduces `form-data.js` exactly,
 so a save only changes the numbers that were edited.
 
+## Admin sign-in
+
+The admin page asks for an email first. Only the address in `admin-config.js`
+(dustinwood01@gmail.com) is accepted; the page emails it a one-time link through FormSubmit, and
+opening the link on the same device signs in for 30 days. No setup is needed.
+
+This keeps casual visitors out but is not a lock: the site has no server, so someone technical could
+get past it in their own browser. They still could not change prices, because saving needs the
+GitHub token.
+
 ## Re-running the price check
 
 ```sh
