@@ -1,7 +1,5 @@
-// Settings for the admin page's email sign-in. With `firebase` left as null, sign-in is off and
-// admin.html works without it (saving still needs a GitHub token). To turn it on, paste the web
-// app config from the Firebase console here (see README, "Admin sign-in").
+// The only address that can sign in to admin.html. The sign-in link is emailed through
+// FormSubmit, the same service the price form uses.
 window.LHWS_ADMIN = {
   adminEmail: 'dustinwood01@gmail.com',
-  firebase: null,
 };

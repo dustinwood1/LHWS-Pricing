@@ -40,23 +40,13 @@ so a save only changes the numbers that were edited.
 
 ## Admin sign-in
 
-The admin page can require signing in with an emailed link, through Firebase Authentication's free
-plan. Only the address in `admin-config.js` (dustinwood01@gmail.com) is let in. Once signed in, the
-GitHub token is kept in that account (in Firestore, readable only by the admin), so it is pasted once
-and works on every device the admin signs in on. Until `admin-config.js` has a Firebase config,
-sign-in is off and the page works as before.
+The admin page asks for an email first. Only the address in `admin-config.js`
+(dustinwood01@gmail.com) is accepted; the page emails it a one-time link through FormSubmit, and
+opening the link on the same device signs in for 30 days. No setup is needed.
 
-To turn it on:
-
-1. At https://console.firebase.google.com, **Create a project** (Google Analytics not needed).
-2. **Build → Authentication → Get started → Sign-in method → Email/Password**: turn on
-   **Email link (passwordless sign-in)** and save.
-3. **Authentication → Settings → Authorized domains → Add domain**: `khaledhamza.github.io`.
-4. **Build → Firestore Database → Create database** (production mode, any location). On its **Rules**
-   tab, paste the contents of [`firestore.rules`](firestore.rules) and **Publish**.
-5. **Project settings → General → Your apps → Web (`</>`)**: register an app (no Hosting needed) and
-   copy the `apiKey`, `authDomain` and `projectId` from the config it shows into `firebase` in
-   `admin-config.js`. These values are meant to be public; access is enforced by the rules.
+This keeps casual visitors out but is not a lock: the site has no server, so someone technical could
+get past it in their own browser. They still could not change prices, because saving needs the
+GitHub token.
 
 ## Re-running the price check
 
